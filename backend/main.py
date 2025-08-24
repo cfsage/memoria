@@ -22,14 +22,23 @@ models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI()
 
-origins = ["http://localhost:3000", "localhost:3000"]
+origins = ["http://localhost:3000", "localhost:3000", "http://127.0.0.1:3000", "127.0.0.1:3000"]
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 UPLOAD_DIR, JSON_DIR, DB_DIR = "uploads", "processed_stories", "vector_db"
-os.makedirs(UPLOAD_DIR, exist_ok=True); os.makedirs(JSON_DIR, exist_ok=True); os.makedirs(DB_DIR, exist_ok=True)
 
-client = OpenAI(base_url="https://api.aimlapi.com/v1", api_key="<YOUR_API_KEY>")
-AI_MODEL = "openai/gpt-5-chat-latest"
+# Ensure directories exist with proper permissions
+try:
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    os.makedirs(JSON_DIR, exist_ok=True)
+    os.makedirs(DB_DIR, exist_ok=True)
+    print(f"Directories created/verified: {UPLOAD_DIR}, {JSON_DIR}, {DB_DIR}")
+except Exception as e:
+    print(f"Error creating directories: {str(e)}")
+
+# TODO: Replace with your actual OpenAI API key before using
+client = OpenAI(api_key="sk-your-openai-api-key")
+AI_MODEL = "gpt-3.5-turbo"
 sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
 db_client = chromadb.PersistentClient(path=DB_DIR)
 collection = db_client.get_or_create_collection(name="memoria_stories", embedding_function=sentence_transformer_ef)
@@ -42,7 +51,8 @@ def get_db():
 class UserCreate(BaseModel): email: str; password: str
 class StoryResponse(BaseModel):
     id: str; title: str; created_at: datetime.datetime; is_public: bool
-    class Config: orm_mode = True
+    class Config:
+        from_attributes = True
 
 @app.get("/")
 def read_root(): return {"status": "Memoria Backend is Online"}
@@ -66,11 +76,29 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
 
 @app.post("/upload")
 async def upload_audio(file: UploadFile = File(...), current_user: models.User = Depends(auth.get_current_user)):
-    story_id = str(uuid.uuid4())
-    file_extension = os.path.splitext(file.filename)[1]
-    file_path = os.path.join(UPLOAD_DIR, f"{story_id}{file_extension}")
-    with open(file_path, "wb") as buffer: shutil.copyfileobj(file.file, buffer)
-    return {"story_id": story_id}
+    try:
+        # Generate a unique ID for the story
+        story_id = str(uuid.uuid4())
+        
+        # Get file extension, defaulting to .audio if none is provided
+        file_extension = os.path.splitext(file.filename)[1] if file.filename else ".audio"
+        
+        # Create the full file path
+        file_path = os.path.join(UPLOAD_DIR, f"{story_id}{file_extension}")
+        
+        # Ensure the upload directory exists
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        
+        # Save the file
+        print(f"Saving file to {file_path}")
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        print(f"File saved successfully: {file_path}")
+        return {"story_id": story_id}
+    except Exception as e:
+        print(f"Error in upload_audio: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
 
 def transcribe_audio_placeholder(file_path: str) -> str: return "Well, let me tell you about the winter of '78..."
 
@@ -85,7 +113,7 @@ async def process_story(story_id: str, db: Session = Depends(get_db), current_us
         deconstructed_data = json.loads(response.choices[0].message.content)
     except Exception as e: raise HTTPException(status_code=500, detail=f"AI processing failed: {str(e)}")
     new_story = models.Story(id=story_id, title=deconstructed_data.get("title", "Untitled Story"), owner_id=current_user.id)
-    db.add(new__story); db.commit()
+    db.add(new_story); db.commit()
     json_file_path = os.path.join(JSON_DIR, f"{story_id}.json")
     with open(json_file_path, "w") as f: json.dump(deconstructed_data, f, indent=2)
     collection.add(documents=[transcript], metadatas=[{"story_id": story_id, "owner_id": current_user.id}], ids=[story_id])

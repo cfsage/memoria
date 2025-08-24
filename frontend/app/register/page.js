@@ -47,7 +47,6 @@ export default function RegisterPage() {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
                             <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email Address</label>
-                            {/* --- THE FIX IS HERE --- */}
                             <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="mt-1 block w-full px-3 py-2 border rounded-md" />
                         </div>
                         <div>

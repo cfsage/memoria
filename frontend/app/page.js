@@ -98,13 +98,22 @@ export default function Home() {
 
         let currentStoryId = null;
         try {
+            console.log('Uploading file...');
             const uploadResponse = await fetch('http://localhost:8000/upload', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
                 body: formData,
             });
-            if (uploadResponse.status === 401) throw new Error('Authentication failed. Please log in again.');
-            if (!uploadResponse.ok) throw new Error('File upload failed.');
+            
+            if (uploadResponse.status === 401) {
+                throw new Error('Authentication failed. Please log in again.');
+            }
+            
+            if (!uploadResponse.ok) {
+                const errorData = await uploadResponse.json().catch(() => ({}));
+                const errorMessage = errorData.detail || 'File upload failed. Please try again.';
+                throw new Error(errorMessage);
+            }
             
             const uploadData = await uploadResponse.json();
             currentStoryId = uploadData.story_id;
@@ -123,8 +132,26 @@ export default function Home() {
             setAppState('SUCCESS');
 
         } catch (err) {
-            console.error(err);
-            setErrorMessage(err.message || 'An unknown error occurred.');
+            console.error('Error during upload/processing:', err);
+            // Handle case where err is an object instead of a string
+            let errorMsg = 'An unknown error occurred.';
+            
+            if (err.message) {
+                // If it's a standard Error object with a message property
+                errorMsg = err.message;
+            } else if (typeof err === 'object') {
+                // If it's a plain object, try to stringify it or extract relevant properties
+                try {
+                    errorMsg = JSON.stringify(err);
+                } catch (e) {
+                    // If stringify fails, try to extract some meaningful properties
+                    errorMsg = Object.keys(err).length > 0 
+                        ? `Error with properties: ${Object.keys(err).join(', ')}` 
+                        : 'Error: Empty object';
+                }
+            }
+            
+            setErrorMessage(errorMsg);
             setAppState('ERROR');
         }
     };
