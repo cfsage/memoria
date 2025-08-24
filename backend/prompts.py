@@ -8,15 +8,10 @@ The JSON object must follow this exact structure:
   "title": "A short, compelling title for the story.",
   "summary": "A concise, one-paragraph summary of the story's main events.",
   "themes": ["A list of 3-5 key themes identified in the story (e.g., 'Family', 'Childhood', 'Tradition', 'Humor')."],
-  "emoji_summary": "A 3-5 emoji summary that captures the essence of the story (e.g., '❄️👨‍👩‍👧‍👦🔥').",
-  "underlying_values": ["A list of 3-5 core human values or lessons taught in the story."],
-  "personality_traits": ["A list of 3-5 adjectives describing the speaker's personality."],
-  "cultural_references": [
-    {{
-      "term": "A specific term or phrase a young person might not know.",
-      "explanation": "A simple, modern explanation of that term."
-    }}
-  ]
+  "humor": "Describe the humor in the story, if any, and how it is expressed.",
+  "essence": "Describe the main essence or moral of the story in 1-2 sentences.",
+  "personality_traits": ["A list of 3-5 personality traits of the storyteller (e.g., 'kind', 'funny', 'wise')."],
+  "memorable_quote": "A memorable quote from the story."
 }}
 
 Now, analyze the following transcript and generate the JSON object.
